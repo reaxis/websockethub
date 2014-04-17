@@ -4,17 +4,21 @@ var debug;
 
 // appended odd string to avoid shadowing existing vars
 function chatroomwidget_88ed71a($) {
+    if ($ === undefined) {
+        throw "chatroomwidget.js requires jQuery";
+    }
+    // TODO: get from query string
+    if (chatroomwidgetServerUrl === undefined) {
+        throw "chatroomwidgetServerUrl must be defined";
+    }
     function isScrolledToBottom(el) {
         return el.scrollHeight === (el.offsetHeight + el.scrollTop);
     }
     function scrollToBottom(el) {
         el.scrollTop = el.scrollHeight;
     }
-
+    var name;
     var id = "chatroomwidget_88ed71a";
-    if ($ === undefined) {
-        throw "chatroomwidget.js requires jQuery";
-    }
     var ws;
     var $input = $("<form style='flex-shrink: 0'>")
         .append($("<input id="+id+"input style='width: 100%'>").click(function (e) {
@@ -24,7 +28,7 @@ function chatroomwidget_88ed71a($) {
         ).submit(function (e) {
             e.preventDefault();
             var node = document.getElementById(id+"input");
-            ws.send(node.value);
+            ws.send("<" + name + "> " + node.value);
             node.value = "";
         });
     function toMini(node) {
@@ -53,6 +57,23 @@ function chatroomwidget_88ed71a($) {
             "overflow-y": "auto",
             "overflow-x": "hidden",
         })[0]);
+        if (name === undefined) {
+            var $banner = $("<div><p>What nickname do you want?<p></div>")
+                .css({
+                    "background": "white",
+                    "text-align": "center",
+                    "top": 0,
+                    "height": "100%",
+                    "position": "absolute",
+                    "width": "100%",
+                }).click(function () {
+                    return false;
+                }).append($('<form><input>').submit(function (e) {
+                    e.preventDefault();
+                    name = $(this).find('input')[0].value;
+                    $banner.remove();
+                })).appendTo(node);
+        }
     }
     var $node = $('<div id=' + id + '>')
         .append($("<div id="+id+"messages>").css({
@@ -78,7 +99,7 @@ function chatroomwidget_88ed71a($) {
             }
         }).appendTo('body');
     toMini($node[0]);
-    var ws = new WebSocket("ws://echo.websocket.org/");
+    var ws = new WebSocket(chatroomwidgetServerUrl);
     ws.onopen = function onopen() {
     };
     ws.onmessage = function onmessage(evt) {
