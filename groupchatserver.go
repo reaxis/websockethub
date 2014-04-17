@@ -46,6 +46,7 @@ var numclients uint32
 var connectedclients int32
 var nummessages uint32
 var verbose bool
+var files http.Handler
 
 func inc(i *uint32) uint32 {
 	return atomic.AddUint32(i, 1)
@@ -77,15 +78,7 @@ func ld(i *uint32) uint32 {
 	return atomic.LoadUint32(i)
 }
 
-func handler(w http.ResponseWriter, r *http.Request) {
-	ws, err := websocket.Upgrade(w, r, nil, 1024, 1024)
-	if _, ok := err.(websocket.HandshakeError); ok {
-		http.Error(w, "Not a websocket handshake", 400)
-		return
-	} else if err != nil {
-		log.Println(err)
-		return
-	}
+func handleWebsocket(ws *websocket.Conn) {
 	if verbose {
 		atomic.AddInt32(&connectedclients, 1)
 		log.Printf("Client count +1: %d\n", connectedclients)
@@ -129,12 +122,36 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func handleNormal(w http.ResponseWriter, r *http.Request) {
+	files.ServeHTTP(w, r)
+}
+
+func handler(w http.ResponseWriter, r *http.Request) {
+	ws, err := websocket.Upgrade(w, r, nil, 1024, 1024)
+	if _, ok := err.(websocket.HandshakeError); ok {
+		handleNormal(w, r)
+		return
+	} else if err != nil {
+		log.Println(err)
+		return
+	} else {
+		handleWebsocket(ws)
+		return
+	}
+}
+
 func main() {
 	clients.c = map[uint32]*websocket.Conn{}
 	http.HandleFunc("/", handler)
 	addr := flag.String("l", "localhost:8081", "listen address")
 	flag.BoolVar(&verbose, "v", false, "verbose")
+	root := flag.String("root", "", "(optional) root dir for web requests")
 	flag.Parse()
+	if *root != "" {
+		files = http.FileServer(http.Dir(*root))
+	} else {
+		files = http.NotFoundHandler()
+	}
 	if verbose {
 		log.Print("Starting websocket groupchat server on ", *addr)
 	}
