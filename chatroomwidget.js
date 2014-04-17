@@ -1,7 +1,5 @@
 "use strict";
 
-var debug;
-
 // appended odd string to avoid shadowing existing vars
 function chatroomwidget_88ed71a($) {
     if ($ === undefined) {
@@ -47,8 +45,8 @@ function chatroomwidget_88ed71a($) {
         $(node)
             .removeClass("mini")
             .css({
-                width: "250px",
-                height: "200px",
+                width: "300px",
+                height: "500px",
                 "font-size": '12pt',
             })
             .find('> :not(#'+id+'messages)')
@@ -111,7 +109,6 @@ function chatroomwidget_88ed71a($) {
             scrollToBottom(el);
         }
     };
-    debug = {ws: ws};
 }
 
 if (typeof define === "function" && define.amd) {
