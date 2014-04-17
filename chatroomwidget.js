@@ -72,6 +72,7 @@ function chatroomwidget_88ed71a($) {
                     e.preventDefault();
                     name = $(this).find('input')[0].value;
                     $banner.remove();
+                    $('#'+id).find('input')[0].focus();
                 })).appendTo(node);
         }
     }
