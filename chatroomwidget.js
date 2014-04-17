@@ -77,6 +77,7 @@ function chatroomwidget_88ed71a($) {
     var $node = $('<div id=' + id + '>')
         .append($("<div id="+id+"messages>").css({
                 'white-space': 'pre-wrap',
+                'font-family': 'sans-serif',
             })
         ).append($input)
         .css({
