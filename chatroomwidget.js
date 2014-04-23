@@ -22,12 +22,18 @@
 
 (function () {
 
+    function getWebsocketUrl() {
+        if (typeof chatroomwidgetServerUrl !== "undefined") {
+            return chatroomwidgetServerUrl;
+        }
+        // Include protocol to prevent leaking between HTTP and HTTPS.
+        // Exclude querystring & anchor to normalize for sessions &c
+        var myloc = window.location.origin + window.location.pathname;
+        return "ws://websockethub.com/" + encodeURIComponent(myloc);
+    }
+
     // build the chat widget
     function chatroomwidget_main($) {
-        // TODO: get from query string
-        if (chatroomwidgetServerUrl === undefined) {
-            throw "chatroomwidgetServerUrl must be defined";
-        }
         function isScrolledToBottom(el) {
             return el.scrollHeight === (el.offsetHeight + el.scrollTop);
         }
@@ -38,11 +44,8 @@
         var id = "chatroomwidget_88ed71a";
         var ws;
         var $input = $("<form style='flex-shrink: 0'>")
-            .append($("<input id="+id+"input style='width: 100%'>").click(function (e) {
-                    // don't hide
-                    return false;
-                })
-            ).submit(function (e) {
+            .append($("<input id="+id+"input style='width: 100%'>"))
+            .submit(function (e) {
                 e.preventDefault();
                 var node = document.getElementById(id+"input");
                 ws.send("<" + name + "> " + node.value);
@@ -74,31 +77,28 @@
                 "overflow-y": "auto",
                 "overflow-x": "hidden",
             })[0]);
-            if (name === undefined) {
-                var $banner = $("<div><p>What nickname do you want?<p></div>")
-                    .css({
-                        "background": "white",
-                        "text-align": "center",
-                        "top": 0,
-                        "height": "100%",
-                        "position": "absolute",
-                        "width": "100%",
-                    }).click(function () {
-                        return false;
-                    }).append($('<form><input>').submit(function (e) {
-                        e.preventDefault();
-                        name = $(this).find('input')[0].value;
-                        $banner.remove();
-                        $('#'+id).find('input')[0].focus();
-                    })).appendTo(node);
-            }
         }
         var $node = $('<div id=' + id + '>')
+            .append($("<div id="+id+"banner><p>What nickname do you want?<p></div>")
+                .css({
+                    "background": "white",
+                    "text-align": "center",
+                    "top": 0,
+                    "height": "100%",
+                    "position": "absolute",
+                    "width": "100%",
+                    "z-index": 1001,
+                }).append($('<form><input>').submit(function (e) {
+                    e.preventDefault();
+                    name = $(this).find('input')[0].value;
+                    $('#'+id+'banner').remove();
+                    $('#'+id).find('input')[0].focus();
+                })))
             .append($("<div id="+id+"messages>").css({
                     'white-space': 'pre-wrap',
                     'font-family': 'sans-serif',
-                })
-            ).append($input)
+                }))
+            .append($input)
             .css({
                 position: "absolute",
                 right: "50px",
@@ -109,6 +109,8 @@
                 display: "flex",
                 "flex-direction": "column",
                 "justify-content": "flex-end",
+            }).on("click", "input", function () {
+                return false;
             }).click(function(e) {
                 e.preventDefault();
                 if ($(this).hasClass("mini")) {
@@ -118,7 +120,7 @@
                 }
             }).appendTo('body');
         toMini($node[0]);
-        var ws = new WebSocket(chatroomwidgetServerUrl);
+        var ws = new WebSocket(getWebsocketUrl());
         ws.onopen = function onopen() {
         };
         ws.onmessage = function onmessage(evt) {
