@@ -32,6 +32,8 @@ import (
 	"github.com/hraban/lrucache"
 )
 
+type safeUint32 uint32
+
 // in num msgs not bytes
 const BACKLOG_SIZE = 10
 
@@ -42,18 +44,30 @@ var clients struct {
 	l sync.RWMutex
 }
 var lowest uint32
-var numclients uint32
-var connectedclients int32
-var nummessages uint32
+var numclients safeUint32
+var connectedclients safeUint32
+var nummessages safeUint32
 var verbose bool
 var files http.Handler
 
-func inc(i *uint32) uint32 {
-	return atomic.AddUint32(i, 1)
+func (i *safeUint32) add(x uint32) uint32 {
+	return atomic.AddUint32((*uint32)(i), x)
+}
+
+func (i *safeUint32) inc() uint32 {
+	return i.add(1)
+}
+
+func (i *safeUint32) dec() uint32 {
+	return i.add(^uint32(0))
+}
+
+func (i *safeUint32) load() uint32 {
+	return atomic.LoadUint32((*uint32)(i))
 }
 
 func extendBacklog(msg []byte) {
-	msgid := inc(&nummessages)
+	msgid := nummessages.inc()
 	if verbose {
 	}
 	backlog.Set(fmt.Sprint(msgid), msg)
@@ -66,30 +80,24 @@ func sendToClient(id uint32, c *websocket.Conn, msg []byte) error {
 		delete(clients.c, id)
 		clients.l.Unlock()
 		if verbose {
-			atomic.AddInt32(&connectedclients, -1)
-			log.Printf("Client count -1: %d\n", connectedclients)
+			log.Printf("Client count -1: %d\n", connectedclients.dec())
 		}
 		return err
 	}
 	return nil
 }
 
-func ld(i *uint32) uint32 {
-	return atomic.LoadUint32(i)
-}
-
 func handleWebsocket(ws *websocket.Conn) {
 	if verbose {
-		atomic.AddInt32(&connectedclients, 1)
-		log.Printf("Client count +1: %d\n", connectedclients)
+		log.Printf("Client count +1: %d\n", connectedclients.inc())
 	}
 	var i uint32
-	if ld(&nummessages) < BACKLOG_SIZE {
+	if nummessages.load() < BACKLOG_SIZE {
 		i = 0
 	} else {
-		i = ld(&nummessages) - BACKLOG_SIZE
+		i = nummessages.load() - BACKLOG_SIZE
 	}
-	for i <= ld(&nummessages) {
+	for i <= nummessages.load() {
 		msgi, err := backlog.Get(fmt.Sprint(i))
 		if err != lrucache.ErrNotFound {
 			msg := msgi.([]byte)
@@ -97,9 +105,9 @@ func handleWebsocket(ws *websocket.Conn) {
 				return
 			}
 		}
-		inc(&i)
+		i += 1
 	}
-	id := inc(&numclients)
+	id := numclients.inc()
 	clients.l.Lock()
 	clients.c[id] = ws
 	clients.l.Unlock()
@@ -133,6 +141,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		return
 	} else if err != nil {
 		log.Println(err)
+		http.Error(w, "internal server error", 500)
 		return
 	} else {
 		handleWebsocket(ws)
