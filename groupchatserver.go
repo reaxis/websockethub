@@ -73,24 +73,37 @@ func extendBacklog(msg []byte) {
 	backlog.Set(fmt.Sprint(msgid), msg)
 }
 
+func addClient(id uint32, c *websocket.Conn) {
+	clients.l.Lock()
+	clients.c[id] = c
+	clients.l.Unlock()
+	if verbose {
+		log.Printf("Client count +1: %d\n", connectedclients.inc())
+	}
+}
+
+func delClient(id uint32) {
+	clients.l.Lock()
+	// Lock is held longer than strictly necessary. Profile before optimizing.
+	defer clients.l.Unlock()
+	c := clients.c[id]
+	c.Close()
+	delete(clients.c, id)
+	if verbose {
+		log.Printf("Client count -1: %d\n", connectedclients.dec())
+	}
+}
+
 func sendToClient(id uint32, c *websocket.Conn, msg []byte) error {
 	err := c.WriteMessage(websocket.TextMessage, msg)
 	if err != nil {
-		clients.l.Lock()
-		delete(clients.c, id)
-		clients.l.Unlock()
-		if verbose {
-			log.Printf("Client count -1: %d\n", connectedclients.dec())
-		}
+		delClient(id)
 		return err
 	}
 	return nil
 }
 
 func handleWebsocket(ws *websocket.Conn) {
-	if verbose {
-		log.Printf("Client count +1: %d\n", connectedclients.inc())
-	}
 	var i uint32
 	if nummessages.load() < BACKLOG_SIZE {
 		i = 0
@@ -108,17 +121,15 @@ func handleWebsocket(ws *websocket.Conn) {
 		i += 1
 	}
 	id := numclients.inc()
-	clients.l.Lock()
-	clients.c[id] = ws
-	clients.l.Unlock()
+	addClient(id, ws)
 	for {
 		typ, msg, err := ws.ReadMessage()
 		if err != nil {
-			ws.Close()
+			delClient(id)
 			return
 		}
 		if typ != websocket.TextMessage {
-			ws.Close()
+			delClient(id)
 			return
 		}
 		go extendBacklog(msg)
