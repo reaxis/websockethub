@@ -73,13 +73,15 @@ func extendBacklog(msg []byte) {
 	backlog.Set(fmt.Sprint(msgid), msg)
 }
 
-func addClient(id uint32, c *websocket.Conn) {
+func addClient(c *websocket.Conn) uint32 {
+	id := numclients.inc()
 	clients.l.Lock()
 	clients.c[id] = c
 	clients.l.Unlock()
 	if verbose {
-		log.Printf("Client count +1: %d\n", connectedclients.inc())
+		log.Printf("Client joined: #%d (now: %d)", id, connectedclients.inc())
 	}
+	return id
 }
 
 func delClient(id uint32) {
@@ -90,7 +92,7 @@ func delClient(id uint32) {
 	c.Close()
 	delete(clients.c, id)
 	if verbose {
-		log.Printf("Client count -1: %d\n", connectedclients.dec())
+		log.Printf("Client left: #%d (now: %d)", id, connectedclients.dec())
 	}
 }
 
@@ -120,8 +122,7 @@ func handleWebsocket(ws *websocket.Conn) {
 		}
 		i += 1
 	}
-	id := numclients.inc()
-	addClient(id, ws)
+	id := addClient(ws)
 	for {
 		typ, msg, err := ws.ReadMessage()
 		if err != nil {
