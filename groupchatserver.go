@@ -26,27 +26,41 @@ import (
 	"net/http"
 
 	"github.com/gorilla/websocket"
+	"github.com/hraban/lrucache"
 )
 
-// in num msgs not bytes
+// in num msgs not bytes (TODO: should be in bytes)
 const BACKLOG_SIZE = 10
+
+// when maximum is reached, room with least recent activity is purged
+const NUM_ROOMS = 1000
 
 // https://soundcloud.com/testa-jp/mask-on-mask-re-edit-free-dl
 var verbose bool
 var files http.Handler
-var mainroom *chatroom
+var rooms = lrucache.New(NUM_ROOMS)
 
-func handleWebsocket(cr *chatroom, ws *websocket.Conn) {
+// Fuck yeah lrucache
+func (cr *chatroom) OnPurge(lrucache.PurgeReason) {
+	cr.Close()
+}
+
+func handleWebsocket(roomname string, ws *websocket.Conn) {
+	obj, err := rooms.Get(roomname)
+	if err != nil {
+		log.Fatalf("Unexpected error from lrucache.Get(%q): %v", roomname, err)
+	}
+	cr := obj.(*chatroom)
 	c := client(ws)
-	id := cr.addClient(c)
+	id := cr.l_addClient(c)
 	for {
 		typ, msg, err := c.ReadMessage()
 		if err != nil {
-			cr.delClient(id, c)
+			cr.l_delClient(id, c)
 			return
 		}
 		if typ != websocket.TextMessage {
-			cr.delClient(id, c)
+			cr.l_delClient(id, c)
 			return
 		}
 		cr.handleNewMsg(c, msg)
@@ -67,13 +81,18 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal server error", 500)
 		return
 	} else {
-		handleWebsocket(mainroom, ws)
+		handleWebsocket(r.URL.Path, ws)
 		return
 	}
 }
 
 func main() {
-	mainroom = newChatroom(BACKLOG_SIZE)
+	rooms.OnMiss(func(roomname string) (lrucache.Cacheable, error) {
+		if verbose {
+			log.Printf("Created room %q", roomname)
+		}
+		return newChatroom(BACKLOG_SIZE), nil
+	})
 	http.HandleFunc("/", handler)
 	addr := flag.String("l", "localhost:8081", "listen address")
 	flag.BoolVar(&verbose, "v", false, "verbose")

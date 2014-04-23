@@ -43,16 +43,16 @@ func TestClientCount(t *testing.T) {
 		verbose = oldverbose
 	}()
 	cr := newChatroom(10)
-	id := cr.addClient(clientMock{})
+	id := cr.l_addClient(clientMock{})
 	if id != 1 {
 		t.Errorf("Unexpected id for first client: #%d", id)
 	}
 	c2 := clientMock{}
-	id = cr.addClient(c2)
+	id = cr.l_addClient(c2)
 	if id != 2 {
 		t.Errorf("Unexpected id for second client: #%d", id)
 	}
-	cr.delClient(id, c2)
+	cr.l_delClient(id, c2)
 	if i := cr.numclients.load(); i != 2 {
 		t.Error("Unexpected total number of clients:", i)
 	}

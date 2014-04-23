@@ -41,7 +41,8 @@ type chatroom struct {
 	// Only used in verbose mode
 	numclients       safeUint32
 	connectedclients safeUint32
-	// unsafe for concurrent use
+	// unsafe for concurrent use. methods beginning with a l_ acquire one of
+	// these locks (so don't call them with an acquired lock)
 	l struct {
 		clientsL sync.RWMutex
 		clients  map[uint32]client
@@ -79,7 +80,7 @@ func (cr *chatroom) sendBacklog(c client) {
 	}
 }
 
-func (cr *chatroom) addClient(c client) uint32 {
+func (cr *chatroom) l_addClient(c client) uint32 {
 	id := cr.numclients.inc()
 	cr.l.clientsL.Lock()
 	cr.l.clients[id] = c
@@ -92,7 +93,7 @@ func (cr *chatroom) addClient(c client) uint32 {
 	return id
 }
 
-func (cr *chatroom) delClient(id uint32, c client) {
+func (cr *chatroom) l_delClient(id uint32, c client) {
 	cr.l.clientsL.Lock()
 	// Lock is held longer than strictly necessary. Profile before optimizing.
 	defer cr.l.clientsL.Unlock()
@@ -104,10 +105,10 @@ func (cr *chatroom) delClient(id uint32, c client) {
 	}
 }
 
-func (cr *chatroom) sendToClient(id uint32, c client, msg []byte) error {
+func (cr *chatroom) l_sendToClient(id uint32, c client, msg []byte) error {
 	err := c.WriteMessage(websocket.TextMessage, msg)
 	if err != nil {
-		cr.delClient(id, c)
+		cr.l_delClient(id, c)
 		return err
 	}
 	return nil
@@ -117,7 +118,7 @@ func (cr *chatroom) sendToClient(id uint32, c client, msg []byte) error {
 func (cr *chatroom) sendToAllClientsAsync(msg []byte) {
 	cr.l.clientsL.RLock()
 	for id, c := range cr.l.clients {
-		go cr.sendToClient(id, c, msg)
+		go cr.l_sendToClient(id, c, msg)
 	}
 	cr.l.clientsL.RUnlock()
 }
@@ -125,4 +126,14 @@ func (cr *chatroom) sendToAllClientsAsync(msg []byte) {
 func (cr *chatroom) handleNewMsg(from client, msg []byte) {
 	go cr.extendBacklog(msg)
 	cr.sendToAllClientsAsync(msg)
+}
+
+func (cr *chatroom) Close() error {
+	cr.l.clientsL.RLock()
+	for id, c := range cr.l.clients {
+		// must be goroutine because l_delClient wants the lock
+		go cr.l_delClient(id, c)
+	}
+	cr.l.clientsL.RUnlock()
+	return nil
 }
