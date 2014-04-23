@@ -151,12 +151,19 @@
     // doesn't and retry until the wait time is longer than one second (total
     // wait time is cumulative). All numbers were chosen because they felt
     // right. The reason for doing this is allowing this script to be included
-    // before the jquery library and still work.
+    // before the jquery library and still work. If jquery just doesn't load,
+    // I'll load it myself.
     function chatroomwidget_loader(retry_ms) {
         if (typeof jQuery === 'undefined') {
+            if (retry_ms === undefined) {
+                throw "failed to load jquery";
+            }
             // try again a couple times
             if (retry_ms > 1000) {
-                throw "chatroomwidget.js requires jQuery";
+                var el = document.createElement("script");
+                el.src = "http://static.websockethub.com/jquery-2.1.0.min.js";
+                el.onload = chatroomwidget_loader;
+                document.body.appendChild(el);
             } else {
                 setTimeout(function () {
                     chatroomwidget_loader(retry_ms * 1.4);
