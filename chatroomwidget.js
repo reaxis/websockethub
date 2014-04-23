@@ -40,6 +40,7 @@
         function scrollToBottom(el) {
             el.scrollTop = el.scrollHeight;
         }
+        var oldTitle = document.title;
         var name;
         var id = "chatroomwidget_88ed71a";
         var ws;
@@ -130,7 +131,15 @@
             if (atbottom || $('#'+id).hasClass("mini")) {
                 scrollToBottom(el);
             }
+            if (document.hidden) {
+                document.title = "new messages - " + oldTitle;
+            }
         };
+        document.addEventListener("visibilitychange", function () {
+            if (!document.hidden) {
+                document.title = oldTitle;
+            }
+        });
     }
 
     // Load chatroomwidget if jQuery exists, exponentially back off if it
