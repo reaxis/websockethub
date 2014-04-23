@@ -22,123 +22,34 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"net/http"
-	"sync"
-	"sync/atomic"
 
 	"github.com/gorilla/websocket"
-	"github.com/hraban/lrucache"
 )
-
-type safeUint32 uint32
 
 // in num msgs not bytes
 const BACKLOG_SIZE = 10
 
 // https://soundcloud.com/testa-jp/mask-on-mask-re-edit-free-dl
-var backlog = lrucache.New(BACKLOG_SIZE)
-var clients struct {
-	c map[uint32]*websocket.Conn
-	l sync.RWMutex
-}
-var lowest uint32
-var numclients safeUint32
-var connectedclients safeUint32
-var nummessages safeUint32
 var verbose bool
 var files http.Handler
+var mainroom *chatroom
 
-func (i *safeUint32) add(x uint32) uint32 {
-	return atomic.AddUint32((*uint32)(i), x)
-}
-
-func (i *safeUint32) inc() uint32 {
-	return i.add(1)
-}
-
-func (i *safeUint32) dec() uint32 {
-	return i.add(^uint32(0))
-}
-
-func (i *safeUint32) load() uint32 {
-	return atomic.LoadUint32((*uint32)(i))
-}
-
-func extendBacklog(msg []byte) {
-	msgid := nummessages.inc()
-	if verbose {
-	}
-	backlog.Set(fmt.Sprint(msgid), msg)
-}
-
-func addClient(c *websocket.Conn) uint32 {
-	id := numclients.inc()
-	clients.l.Lock()
-	clients.c[id] = c
-	clients.l.Unlock()
-	if verbose {
-		log.Printf("Client joined: #%d (now: %d)", id, connectedclients.inc())
-	}
-	return id
-}
-
-func delClient(id uint32) {
-	clients.l.Lock()
-	// Lock is held longer than strictly necessary. Profile before optimizing.
-	defer clients.l.Unlock()
-	c := clients.c[id]
-	c.Close()
-	delete(clients.c, id)
-	if verbose {
-		log.Printf("Client left: #%d (now: %d)", id, connectedclients.dec())
-	}
-}
-
-func sendToClient(id uint32, c *websocket.Conn, msg []byte) error {
-	err := c.WriteMessage(websocket.TextMessage, msg)
-	if err != nil {
-		delClient(id)
-		return err
-	}
-	return nil
-}
-
-func handleWebsocket(ws *websocket.Conn) {
-	var i uint32
-	if nummessages.load() < BACKLOG_SIZE {
-		i = 0
-	} else {
-		i = nummessages.load() - BACKLOG_SIZE
-	}
-	for i <= nummessages.load() {
-		msgi, err := backlog.Get(fmt.Sprint(i))
-		if err != lrucache.ErrNotFound {
-			msg := msgi.([]byte)
-			if ws.WriteMessage(websocket.TextMessage, msg) != nil {
-				return
-			}
-		}
-		i += 1
-	}
-	id := addClient(ws)
+func handleWebsocket(cr *chatroom, ws *websocket.Conn) {
+	c := client(ws)
+	id := cr.addClient(c)
 	for {
-		typ, msg, err := ws.ReadMessage()
+		typ, msg, err := c.ReadMessage()
 		if err != nil {
-			delClient(id)
+			cr.delClient(id, c)
 			return
 		}
 		if typ != websocket.TextMessage {
-			delClient(id)
+			cr.delClient(id, c)
 			return
 		}
-		go extendBacklog(msg)
-		clients.l.RLock()
-		for id, c := range clients.c {
-			go sendToClient(id, c, msg)
-		}
-		clients.l.RUnlock()
+		cr.handleNewMsg(c, msg)
 	}
 }
 
@@ -156,13 +67,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal server error", 500)
 		return
 	} else {
-		handleWebsocket(ws)
+		handleWebsocket(mainroom, ws)
 		return
 	}
 }
 
 func main() {
-	clients.c = map[uint32]*websocket.Conn{}
+	mainroom = newChatroom(BACKLOG_SIZE)
 	http.HandleFunc("/", handler)
 	addr := flag.String("l", "localhost:8081", "listen address")
 	flag.BoolVar(&verbose, "v", false, "verbose")
