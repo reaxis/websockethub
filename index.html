@@ -24,6 +24,7 @@ IN THE SOFTWARE.
 
 <head>
   <title>welcome to websockethub.com</title>
+  <link rel="canonical" href="http://websockethub.com/">
 
 <style>
 body {
@@ -37,12 +38,15 @@ body > h1, body > p, body > pre {
   margin-left: auto;
   margin-right: auto;
 }
-.copyright {
+.footer {
   font-size: smaller;
   color: #444;
 }
-.pretitle {
-  font-weight: bold;
+h1 {
+  font-family: serif;
+}
+.pretitle a {
+  font-family: serif;
   color: #444;
 }
 </style>
@@ -50,22 +54,21 @@ body > h1, body > p, body > pre {
 
 <body>
 
-  <p class=pretitle>Websockethub.com</p>
+  <p class=pretitle><a href="http://websockethub.com/">Websockethub.com</a>
   <h1>Painless chatroom widgets on your website</h1>
 
   <p>Welcome to websockethub.com. Try out the library in the chatwidget on the right side of the screen.
 
   <p>To include a chatroom widget in your own page, put this in your HTML:
 
-  <pre>&lt;script src="https://rawgit.com/hraban/chatroomwidget/master/chatroomwidget.js"&gt;&lt;/script&gt;</pre>
+  <pre>&lt;script src="http://static.websockethub.com/chatroomwidget.js"&gt;&lt;/script&gt;</pre>
 
-  <p>Requires jQuery.
+  <p>Requires jQuery. Source code is available at <a href="https://github.com/hraban/chatroomwidget">https://github.com/hraban/chatroomwidget</a>.
 
-  <p class=copyright>Copyright © 2014 Hraban Luyat<br>hraban@0brg.net
+  <p class=footer>Hraban Luyat, May 2014<br>hraban@0brg.net
 
   <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
   <script>chatroomwidgetServerUrl = "ws://" + document.location.host + "/"; </script>
-  <!-- This is for development: -->
   <script src="/chatroomwidget.js"></script>
 
 </body>
