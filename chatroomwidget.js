@@ -154,7 +154,7 @@
     }
 
     if (typeof define === "function" && define.amd) {
-        define(["jquery"], chatroomwidget_main);
+        define("chatroomwidget", ["jquery"], chatroomwidget_main);
     } else {
         chatroomwidget_loader(20);
     }
