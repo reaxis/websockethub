@@ -53,7 +53,7 @@
             .submit(function (e) {
                 e.preventDefault();
                 var node = document.getElementById(id+"input");
-                ws.send("<" + name + "> " + node.value);
+                ws.send(name + ": " + node.value);
                 node.value = "";
             });
         function toMini(node) {
@@ -93,9 +93,9 @@
                     "position": "absolute",
                     "width": "100%",
                     "z-index": 1001,
-                }).append($('<form><input>').submit(function (e) {
+                }).append($('<form><input name=name>').submit(function (e) {
                     e.preventDefault();
-                    name = $(this).find('input')[0].value;
+                    name = this.name.value;
                     $('#'+id+'banner').remove();
                     $('#'+id).find('input')[0].focus();
                 })))
@@ -132,7 +132,13 @@
         ws.onmessage = function onmessage(evt) {
             var el = document.getElementById(id+'messages');
             var atbottom = isScrolledToBottom(el);
-            $('<div>').text(evt.data).appendTo(el);
+            var i = evt.data.indexOf(':');
+            var name = evt.data.slice(0, i + 1);
+            var msg = evt.data.slice(i + 1);
+            $('<div>')
+                .text(msg)
+                .prepend($('<span class=name style="font-weight: bold;">').text(name))
+                .appendTo(el);
             if (atbottom || $('#'+id).hasClass("mini")) {
                 scrollToBottom(el);
             }
