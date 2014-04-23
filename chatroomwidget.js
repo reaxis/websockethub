@@ -99,6 +99,7 @@
             .append($("<div id="+id+"messages>").css({
                     'white-space': 'pre-wrap',
                     'font-family': 'sans-serif',
+                    'word-wrap': 'break-word',
                 }))
             .append($input)
             .css({
