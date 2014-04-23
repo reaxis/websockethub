@@ -51,7 +51,7 @@ type chatroom struct {
 
 func newChatroom(backlogsize int64) *chatroom {
 	cr := &chatroom{}
-	cr.backlog = lrucache.New(BACKLOG_SIZE)
+	cr.backlog = lrucache.New(backlogsize)
 	cr.l.clients = map[uint32]client{}
 	return cr
 }
@@ -63,10 +63,11 @@ func (cr *chatroom) extendBacklog(msg []byte) {
 
 func (cr *chatroom) sendBacklog(c client) {
 	var i uint32
-	if cr.nummessages.load() < BACKLOG_SIZE {
+	backlogsize := uint32(cr.backlog.Size())
+	if cr.nummessages.load() < backlogsize {
 		i = 0
 	} else {
-		i = cr.nummessages.load() - BACKLOG_SIZE
+		i = cr.nummessages.load() - backlogsize
 	}
 	for i <= cr.nummessages.load() {
 		msgi, err := cr.backlog.Get(fmt.Sprint(i))
