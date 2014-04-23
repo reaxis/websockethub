@@ -28,7 +28,8 @@
         }
         // Include protocol to prevent leaking between HTTP and HTTPS.
         // Exclude querystring & anchor to normalize for sessions &c
-        var myloc = window.location.origin + window.location.pathname;
+        // some naive normalization, too, why not (I know why not)
+        var myloc = (window.location.origin + window.location.pathname).replace(/\/+/, '/');
         return "ws://websockethub.com/" + encodeURIComponent(myloc);
     }
 
