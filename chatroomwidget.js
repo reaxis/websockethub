@@ -22,19 +22,22 @@
 
 (function () {
 
-    function getWebsocketUrl() {
-        if (typeof chatroomwidgetServerUrl !== "undefined") {
-            return chatroomwidgetServerUrl;
-        }
-        // Include protocol to prevent leaking between HTTP and HTTPS.
-        // Exclude querystring & anchor to normalize for sessions &c
-        // some naive normalization, too, why not (I know why not)
-        var myloc = (window.location.origin + window.location.pathname).replace(/\/+/, '/');
-        return "ws://websockethub.com/" + encodeURIComponent(myloc);
-    }
-
     // build the chat widget
     function chatroomwidget_main($) {
+        function myloc() {
+            return $('[rel=canonical]').prop('href')
+                || (window.location.origin + window.location.pathname);
+        }
+        function getWebsocketUrl() {
+            if (typeof chatroomwidgetServerUrl !== "undefined") {
+                return chatroomwidgetServerUrl;
+            }
+            // Include protocol to prevent leaking between HTTP and HTTPS.
+            // Exclude querystring & anchor to normalize for sessions &c
+            // some naive normalization, too, why not (I know why not)
+            var norm = myloc().replace(/\/+/, '/');
+            return "ws://websockethub.com/" + encodeURIComponent(norm);
+        }
         function isScrolledToBottom(el) {
             return el.scrollHeight === (el.offsetHeight + el.scrollTop);
         }
